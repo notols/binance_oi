@@ -159,12 +159,12 @@
         }
 
         function calculateOIChange(latestOI, previousOI) {
-    if (latestOI !== null && previousOI !== null && previousOI !== 0) {
-        // 변수 이름과 실제 데이터가 반대이므로 계산도 반대로
-        return ((previousOI - latestOI) / latestOI) * 100;
-    }
-    return null;
-}
+            if (latestOI !== null && previousOI !== null && previousOI !== 0) {
+                // 이제 변수 이름과 의미가 일치하므로 정상적으로 계산
+                return ((latestOI - previousOI) / previousOI) * 100;
+            }
+            return null;
+        }
         
         // Format large numbers to show with M/B suffix
         function formatLargeNumber(num) {
@@ -215,9 +215,9 @@
                         valueB = b.price || 0;
                         break;
                     case 'openInterest':
-                        // previousOpenInterest가 실제로는 최신 데이터인 것으로 보임
-                        valueA = a.previousOpenInterest || 0;
-                        valueB = b.previousOpenInterest || 0;
+                        // 이제 변수 이름과 의미가 일치
+                        valueA = a.latestOpenInterest || 0;
+                        valueB = b.latestOpenInterest || 0;
                         break;
                     case 'oiChange':
                         valueA = calculateOIChange(a.latestOpenInterest, a.previousOpenInterest) || -Infinity;
@@ -349,20 +349,20 @@
                 // 오픈 인터레스트 정보 설정
                 let oiContent = '';
                 
-                // previousOpenInterest가 실제로는 최신 데이터인 것으로 보임
-                if (item.previousOpenInterest !== null) {
-                    const prevTimeAgo = item.previousOpenInterestTime ? getTimeAgo(item.previousOpenInterestTime) : '?';
-                    const formattedPrevOI = formatLargeNumber(item.previousOpenInterest);
-                    oiContent += `${prevTimeAgo}전: ${formattedPrevOI}<br>`;
+                // 최신 데이터 (latestOpenInterest)를 먼저 표시
+                if (item.latestOpenInterest !== null) {
+                    const latestTimeAgo = item.latestOpenInterestTime ? getTimeAgo(item.latestOpenInterestTime) : '?';
+                    const formattedLatestOI = formatLargeNumber(item.latestOpenInterest);
+                    oiContent += `${latestTimeAgo}전: ${formattedLatestOI}<br>`;
                 } else {
                     oiContent += 'Loading...<br>';
                 }
                 
-                // latestOpenInterest가 실제로는 과거 데이터인 것으로 보임
-                if (item.latestOpenInterest !== null) {
-                    const latestTimeAgo = item.latestOpenInterestTime ? getTimeAgo(item.latestOpenInterestTime) : '?';
-                    const formattedLatestOI = formatLargeNumber(item.latestOpenInterest);
-                    oiContent += `${latestTimeAgo}전: ${formattedLatestOI}`;
+                // 과거 데이터 (previousOpenInterest)를 나중에 표시
+                if (item.previousOpenInterest !== null) {
+                    const prevTimeAgo = item.previousOpenInterestTime ? getTimeAgo(item.previousOpenInterestTime) : '?';
+                    const formattedPrevOI = formatLargeNumber(item.previousOpenInterest);
+                    oiContent += `${prevTimeAgo}전: ${formattedPrevOI}`;
                 } else {
                     oiContent += 'Loading...';
                 }

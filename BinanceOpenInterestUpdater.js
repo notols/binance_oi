@@ -14,39 +14,60 @@ class BinanceOpenInterestUpdater {
             const response = await axios.get(this.API_URL, {
                 params: {
                     symbol: symbol,
-                    period: "15m", // 15분 캔들로 변경
-                    limit: 2 // 최신값 + 직전값 2개 가져오기
+                    period: "15m",
+                    limit: 2
                 }
             });
 
             if (response.data.length >= 2) {
-                return {
-                    newerOpenInterest: parseFloat(response.data[0].sumOpenInterest),  // 최신 15분 OI
-                    olderOpenInterest: parseFloat(response.data[1].sumOpenInterest), // 직전 15분 OI
-                    newerOpenInterestTime: new Date(response.data[0].timestamp), // 최신 타임스탬프
-                    olderOpenInterestTime: new Date(response.data[1].timestamp) // 직전 타임스탬프
+                // 바이낸스 API 응답의 실제 데이터 확인
+                const newer = {
+                    value: parseFloat(response.data[0].sumOpenInterest),
+                    time: new Date(response.data[0].timestamp)
                 };
+                const older = {
+                    value: parseFloat(response.data[1].sumOpenInterest),
+                    time: new Date(response.data[1].timestamp)
+                };
+
+                // 실제 시간값을 확인하여 올바르게 매핑
+                // 시간이 더 최근인 데이터를 newer로, 더 과거인 데이터를 older로 설정
+                if (newer.time > older.time) {
+                    return {
+                        latestOpenInterest: newer.value,     // 최신 OI 값
+                        previousOpenInterest: older.value,   // 과거 OI 값
+                        latestOpenInterestTime: newer.time,  // 최신 OI 시간
+                        previousOpenInterestTime: older.time // 과거 OI 시간
+                    };
+                } else {
+                    return {
+                        latestOpenInterest: older.value,     // 최신 OI 값
+                        previousOpenInterest: newer.value,   // 과거 OI 값
+                        latestOpenInterestTime: older.time,  // 최신 OI 시간
+                        previousOpenInterestTime: newer.time // 과거 OI 시간
+                    };
+                }
             } else if (response.data.length === 1) {
                 return {
-                    newerOpenInterest: parseFloat(response.data[0].sumOpenInterest),
-                    olderOpenInterest: null, // 이전값이 없으면 null
-                    newerOpenInterestTime: new Date(response.data[0].timestamp),
-                    olderOpenInterestTime: null
+                    latestOpenInterest: parseFloat(response.data[0].sumOpenInterest),
+                    previousOpenInterest: null,
+                    latestOpenInterestTime: new Date(response.data[0].timestamp),
+                    previousOpenInterestTime: null
                 };
             }
-            return { 
-                newerOpenInterest: null, 
-                olderOpenInterest: null,
-                newerOpenInterestTime: null,
-                olderOpenInterestTime: null
+            return {
+                latestOpenInterest: null,
+                previousOpenInterest: null,
+                latestOpenInterestTime: null,
+                previousOpenInterestTime: null
             };
         } catch (error) {
             console.error(`❌ Error fetching open interest for ${symbol}:`, error.message);
-            return { 
-                newerOpenInterest: null, 
-                olderOpenInterest: null,
-                newerOpenInterestTime: null,
-                olderOpenInterestTime: null
+            return {
+                latestOpenInterest: null,
+                previousOpenInterest: null,
+                latestOpenInterestTime: null,
+                previousOpenInterestTime: null
             };
         }
     }
@@ -60,10 +81,10 @@ class BinanceOpenInterestUpdater {
         } catch (error) {
             console.error('❌ Error processing batch:', error.message);
             return symbols.map(() => ({
-                newerOpenInterest: null, 
-                olderOpenInterest: null,
-                newerOpenInterestTime: null,
-                olderOpenInterestTime: null
+                latestOpenInterest: null, 
+                previousOpenInterest: null,
+                latestOpenInterestTime: null,
+                previousOpenInterestTime: null
             }));
         }
     }
@@ -101,10 +122,10 @@ class BinanceOpenInterestUpdater {
             // 결과를 데이터 배열에 매핑
             this.data.forEach((item, index) => {
                 if (index < results.length && results[index]) {
-                    item.latestOpenInterest = results[index].newerOpenInterest;
-                    item.previousOpenInterest = results[index].olderOpenInterest;
-                    item.latestOpenInterestTime = results[index].newerOpenInterestTime;
-                    item.previousOpenInterestTime = results[index].olderOpenInterestTime;
+                    item.latestOpenInterest = results[index].latestOpenInterest;
+                    item.previousOpenInterest = results[index].previousOpenInterest;
+                    item.latestOpenInterestTime = results[index].latestOpenInterestTime;
+                    item.previousOpenInterestTime = results[index].previousOpenInterestTime;
                 }
             });
             
