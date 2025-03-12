@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Binance Futures Data</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            text-align: center;
+        }
+        table {
+            width: 80%;
+            margin: 20px auto;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+    </style>
+</head>
+<body>
+    <h1>Binance Futures Data</h1>
+    <table id="futuresTable">
+        <thead>
+            <tr>
+                <th>Symbol</th>
+                <th>Price (USDT)</th>
+                <th>Open Interest</th>
+                <th>Circulating Supply</th>
+                <th>Max Supply</th>
+                <th>Logo</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <script>
+        async function fetchData() {
+            try {
+                const response = await fetch('/api/data');
+                const data = await response.json();
+                updateTable(data);
+            } catch (error) {
+                console.error('Error fetching data:', error);
+            }
+        }
+
+        function updateTable(data) {
+            const tableBody = document.querySelector("#futuresTable tbody");
+            tableBody.innerHTML = "";
+
+            data.forEach(item => {
+                const row = document.createElement("tr");
+                row.innerHTML = `
+                    <td>${item.symbol}</td>
+                    <td>${item.price !== null ? item.price.toFixed(2) : 'Loading...'}</td>
+                    <td>${item.openInterest !== null ? item.openInterest.toFixed(2) : 'Loading...'}</td>
+                    <td>${item.circulatingSupply !== null ? item.circulatingSupply.toLocaleString() : '-'}</td>
+                    <td>${item.maxSupply !== null ? item.maxSupply.toLocaleString() : '-'}</td>
+                    <td><img src="${item.logo}" alt="${item.symbol}" width="30"></td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+
+        // 3초마다 데이터 갱신
+        setInterval(fetchData, 3000);
+        fetchData();
+    </script>
+</body>
+</html>
