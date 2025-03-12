@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Binance Futures Dashboard</title>
+    <title>Binance Futures OI Dashboard</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -114,11 +114,11 @@
 </head>
 <body>
     <div class="container">
-        <h1>Binance Futures Real-Time Data</h1>
+        <h1>Binance Futures OI Dashboard</h1>
         
         <div class="info-bar">
             <div class="data-info">
-                <span class="data-label">Updated every 3 seconds</span>
+                <span class="data-label">Open Interest 업데이트 주기: 15분</span>
             </div>
         </div>
 
@@ -390,7 +390,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             setupSortingEvents();
             fetchData(); // 초기 데이터 로드
-            setInterval(fetchData, 3000); // 3초마다 데이터 갱신
+            setInterval(fetchData, 1000); // 3초마다 데이터 갱신
         });
     </script>
 </body>
