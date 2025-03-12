@@ -110,6 +110,15 @@
             margin-top: 8px;
             text-align: center;
         }
+        .time-ago {
+            color: #a0a0a0;
+            font-size: 0.75rem;
+            opacity: 1;
+        }
+        .oi-value {
+            color: #e0e0e0;
+            font-weight: 500;
+        }
     </style>
 </head>
 <body>
@@ -353,7 +362,7 @@
                 if (item.latestOpenInterest !== null) {
                     const latestTimeAgo = item.latestOpenInterestTime ? getTimeAgo(item.latestOpenInterestTime) : '?';
                     const formattedLatestOI = formatLargeNumber(item.latestOpenInterest);
-                    oiContent += `${latestTimeAgo}전: ${formattedLatestOI}<br>`;
+                    oiContent += `<span class="time-ago">${latestTimeAgo}전:</span> <span class="oi-value">${formattedLatestOI}</span><br>`;
                 } else {
                     oiContent += 'Loading...<br>';
                 }
@@ -362,7 +371,7 @@
                 if (item.previousOpenInterest !== null) {
                     const prevTimeAgo = item.previousOpenInterestTime ? getTimeAgo(item.previousOpenInterestTime) : '?';
                     const formattedPrevOI = formatLargeNumber(item.previousOpenInterest);
-                    oiContent += `${prevTimeAgo}전: ${formattedPrevOI}`;
+                    oiContent += `<span class="time-ago">${prevTimeAgo}전:</span> <span class="oi-value">${formattedPrevOI}</span>`;
                 } else {
                     oiContent += 'Loading...';
                 }
@@ -390,7 +399,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             setupSortingEvents();
             fetchData(); // 초기 데이터 로드
-            setInterval(fetchData, 1000); // 3초마다 데이터 갱신
+            setInterval(fetchData, 1000); // 1초마다 데이터 갱신
         });
     </script>
 </body>
