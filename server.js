@@ -21,7 +21,8 @@ let futuresData = [];
     futuresData = futuresData.map(item => ({
         ...item,
         price: null,
-        openInterest: null
+        latestOpenInterest: null,
+        previousOpenInterest: null
     }));
 
     console.log('✅ 초기 데이터 로드 완료');
@@ -40,9 +41,9 @@ let futuresData = [];
 
     binanceWS.connect();
 
-    // 미결제약정 15초마다 업데이트
+    // 미결제약정 15분마다 업데이트
     const openInterestUpdater = new BinanceOpenInterestUpdater(futuresData);
-    openInterestUpdater.start(15000);
+    openInterestUpdater.start();
 })();
 
 // API 엔드포인트: 현재 데이터 제공

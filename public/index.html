@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Binance Futures Data</title>
+    <title>Binance Futures Dashboard</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -11,27 +11,42 @@
             text-align: center;
         }
         table {
-            width: 80%;
+            width: 90%;
             margin: 20px auto;
             border-collapse: collapse;
         }
         th, td {
             border: 1px solid #ddd;
             padding: 10px;
+            text-align: center;
         }
         th {
             background-color: #f4f4f4;
         }
+        .positive-change {
+            color: green;
+            font-weight: bold;
+        }
+        .negative-change {
+            color: red;
+            font-weight: bold;
+        }
+        img {
+            width: 30px;
+            height: auto;
+        }
     </style>
 </head>
 <body>
-    <h1>Binance Futures Data</h1>
+    <h1>Binance Futures Real-Time Data</h1>
     <table id="futuresTable">
         <thead>
             <tr>
                 <th>Symbol</th>
                 <th>Price (USDT)</th>
-                <th>Open Interest</th>
+                <th>Latest Open Interest</th>
+                <th>Previous Open Interest</th>
+                <th>OI Change (%)</th>
                 <th>Circulating Supply</th>
                 <th>Max Supply</th>
                 <th>Logo</th>
@@ -51,19 +66,37 @@
             }
         }
 
+        function calculateOIChange(latestOI, previousOI) {
+            if (latestOI !== null && previousOI !== null && previousOI !== 0) {
+                return ((latestOI - previousOI) / previousOI) * 100;
+            }
+            return null;
+        }
+
         function updateTable(data) {
             const tableBody = document.querySelector("#futuresTable tbody");
             tableBody.innerHTML = "";
 
             data.forEach(item => {
+                const oiChange = calculateOIChange(item.latestOpenInterest, item.previousOpenInterest);
+                let oiChangeClass = "";
+                let oiChangeText = "Loading...";
+
+                if (oiChange !== null) {
+                    oiChangeText = `${oiChange.toFixed(2)}%`;
+                    oiChangeClass = oiChange >= 0 ? "positive-change" : "negative-change";
+                }
+
                 const row = document.createElement("tr");
                 row.innerHTML = `
                     <td>${item.symbol}</td>
                     <td>${item.price !== null ? item.price.toFixed(2) : 'Loading...'}</td>
-                    <td>${item.openInterest !== null ? item.openInterest.toFixed(2) : 'Loading...'}</td>
+                    <td>${item.latestOpenInterest !== null ? item.latestOpenInterest.toFixed(2) : 'Loading...'}</td>
+                    <td>${item.previousOpenInterest !== null ? item.previousOpenInterest.toFixed(2) : 'Loading...'}</td>
+                    <td class="${oiChangeClass}">${oiChangeText}</td>
                     <td>${item.circulatingSupply !== null ? item.circulatingSupply.toLocaleString() : '-'}</td>
                     <td>${item.maxSupply !== null ? item.maxSupply.toLocaleString() : '-'}</td>
-                    <td><img src="${item.logo}" alt="${item.symbol}" width="30"></td>
+                    <td><img src="${item.logo}" alt="${item.symbol}"></td>
                 `;
                 tableBody.appendChild(row);
             });
