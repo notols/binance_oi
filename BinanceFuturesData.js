@@ -21,9 +21,7 @@ class BinanceFuturesData {
                     symbol: symbol.symbol,
                     baseAsset: symbol.baseAsset,
                     quoteAsset: symbol.quoteAsset,
-                    circulatingSupply: null, // 메타데이터에서 채워질 값
-                    maxSupply: null,
-                    logo: null
+                    circulatingSupply: null // 메타데이터에서 채워질 값
                 }));
 
             // Binance 메타데이터 조회
@@ -37,9 +35,7 @@ class BinanceFuturesData {
                     symbol: pair.symbol,
                     baseAsset: pair.baseAsset,
                     quoteAsset: pair.quoteAsset,
-                    circulatingSupply: metaData ? metaData.circulatingSupply : null,
-                    maxSupply: metaData ? metaData.maxSupply : null,
-                    logo: metaData ? metaData.logo : null
+                    circulatingSupply: metaData ? metaData.circulatingSupply : null
                 };
             });
 

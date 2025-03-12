@@ -21,8 +21,10 @@ let futuresData = [];
     futuresData = futuresData.map(item => ({
         ...item,
         price: null,
-        latestOpenInterest: null,
-        previousOpenInterest: null
+        latestOpenInterest: null,     // 최신 OI 값
+        previousOpenInterest: null,   // 과거 OI 값
+        latestOpenInterestTime: null,  // 최신 OI 시간
+        previousOpenInterestTime: null // 과거 OI 시간
     }));
 
     console.log('✅ 초기 데이터 로드 완료');
