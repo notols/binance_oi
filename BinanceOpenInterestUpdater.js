@@ -3,89 +3,43 @@ import axios from 'axios';
 class BinanceOpenInterestUpdater {
     constructor(data) {
         this.data = data; // 업데이트할 데이터 배열
-        this.API_URL = 'https://fapi.binance.com/futures/data/openInterestHist';
+        this.API_URL = 'https://fapi.binance.com/fapi/v1/openInterest';
         this.interval = null;
-        this.BATCH_SIZE = 100; // 배치 크기 설정
-        this.isUpdating = false; // 업데이트 진행 중 상태 관리
+        this.isUpdating = false;
     }
 
     async fetchOpenInterest(symbol) {
         try {
             const response = await axios.get(this.API_URL, {
                 params: {
-                    symbol: symbol,
-                    period: "15m",
-                    limit: 2
-                }
+                    symbol: symbol
+                },
+                timeout: 10000 // 10초 타임아웃
             });
-
-            if (response.data.length >= 2) {
-                // 바이낸스 API 응답의 실제 데이터 확인
-                const newer = {
-                    value: parseFloat(response.data[0].sumOpenInterest),
-                    time: new Date(response.data[0].timestamp)
-                };
-                const older = {
-                    value: parseFloat(response.data[1].sumOpenInterest),
-                    time: new Date(response.data[1].timestamp)
-                };
-
-                // 실제 시간값을 확인하여 올바르게 매핑
-                // 시간이 더 최근인 데이터를 newer로, 더 과거인 데이터를 older로 설정
-                if (newer.time > older.time) {
-                    return {
-                        latestOpenInterest: newer.value,     // 최신 OI 값
-                        previousOpenInterest: older.value,   // 과거 OI 값
-                        latestOpenInterestTime: newer.time,  // 최신 OI 시간
-                        previousOpenInterestTime: older.time // 과거 OI 시간
-                    };
-                } else {
-                    return {
-                        latestOpenInterest: older.value,     // 최신 OI 값
-                        previousOpenInterest: newer.value,   // 과거 OI 값
-                        latestOpenInterestTime: older.time,  // 최신 OI 시간
-                        previousOpenInterestTime: newer.time // 과거 OI 시간
-                    };
-                }
-            } else if (response.data.length === 1) {
+            
+            if (response.data && response.data.openInterest) {
                 return {
-                    latestOpenInterest: parseFloat(response.data[0].sumOpenInterest),
-                    previousOpenInterest: null,
-                    latestOpenInterestTime: new Date(response.data[0].timestamp),
-                    previousOpenInterestTime: null
+                    symbol,
+                    success: true,
+                    openInterest: parseFloat(response.data.openInterest),
+                    time: new Date(response.data.time)
                 };
             }
+            
             return {
-                latestOpenInterest: null,
-                previousOpenInterest: null,
-                latestOpenInterestTime: null,
-                previousOpenInterestTime: null
+                symbol,
+                success: false,
+                openInterest: null,
+                time: null
             };
         } catch (error) {
             console.error(`❌ Error fetching open interest for ${symbol}:`, error.message);
             return {
-                latestOpenInterest: null,
-                previousOpenInterest: null,
-                latestOpenInterestTime: null,
-                previousOpenInterestTime: null
+                symbol,
+                success: false,
+                openInterest: null,
+                time: null
             };
-        }
-    }
-
-    // 배치 단위로 처리하는 함수
-    async processBatch(symbols) {
-        try {
-            console.log(`🔄 Fetching batch of ${symbols.length} symbols...`);
-            const promises = symbols.map(symbol => this.fetchOpenInterest(symbol));
-            return await Promise.all(promises);
-        } catch (error) {
-            console.error('❌ Error processing batch:', error.message);
-            return symbols.map(() => ({
-                latestOpenInterest: null, 
-                previousOpenInterest: null,
-                latestOpenInterestTime: null,
-                previousOpenInterestTime: null
-            }));
         }
     }
 
@@ -97,39 +51,55 @@ class BinanceOpenInterestUpdater {
         }
 
         this.isUpdating = true;
-        console.log('🔄 Fetching Open Interest for all symbols (15m)...');
+        const startTime = new Date();
+        console.log(`🔄 Fetching Open Interest for all symbols at ${startTime.toISOString()}...`);
         
         try {
             // 모든 심볼 추출
             const symbols = this.data.map(item => item.symbol);
-            const results = [];
+            console.log(`🔄 Processing ${symbols.length} symbols in parallel...`);
             
-            // 배치 단위로 처리
-            for (let i = 0; i < symbols.length; i += this.BATCH_SIZE) {
-                const batchSymbols = symbols.slice(i, i + this.BATCH_SIZE);
-                console.log(`🔄 Processing batch ${i/this.BATCH_SIZE + 1}: ${batchSymbols.length} symbols...`);
-                
-                const batchResults = await this.processBatch(batchSymbols);
-                results.push(...batchResults);
-                
-                // API 제한을 피하기 위해 배치 사이에 잠시 대기
-                if (i + this.BATCH_SIZE < symbols.length) {
-                    console.log('⏱️ Waiting before next batch...');
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                }
-            }
+            // 모든 요청을 병렬로 실행
+            const results = await Promise.all(
+                symbols.map(symbol => this.fetchOpenInterest(symbol))
+            );
             
             // 결과를 데이터 배열에 매핑
-            this.data.forEach((item, index) => {
-                if (index < results.length && results[index]) {
-                    item.latestOpenInterest = results[index].latestOpenInterest;
-                    item.previousOpenInterest = results[index].previousOpenInterest;
-                    item.latestOpenInterestTime = results[index].latestOpenInterestTime;
-                    item.previousOpenInterestTime = results[index].previousOpenInterestTime;
+            const updateCount = this.data.reduce((count, item) => {
+                const result = results.find(r => r.symbol === item.symbol);
+                if (result && result.success) {
+                    // 이전 값을 저장
+                    if (item.latestOpenInterest !== null) {
+                        item.previousOpenInterest = item.latestOpenInterest;
+                        item.previousOpenInterestTime = item.latestOpenInterestTime;
+                    }
+                    
+                    // 새로운 값을 설정
+                    item.latestOpenInterest = result.openInterest;
+                    item.latestOpenInterestTime = result.time;
+                    
+                    return count + 1;
                 }
-            });
+                return count;
+            }, 0);
             
-            console.log('✅ Updated Open Interest (15m):', new Date().toISOString());
+            const failCount = symbols.length - updateCount;
+            const endTime = new Date();
+            const duration = (endTime - startTime) / 1000;
+            
+            if (failCount > 0) {
+                console.log(`⚠️ ${updateCount}/${symbols.length} symbols updated. ${failCount} symbols failed to update.`);
+                
+                // 실패한 심볼 확인
+                const failedSymbols = results
+                    .filter(r => !r.success)
+                    .map(r => r.symbol);
+                console.log(`❌ Failed symbols: ${failedSymbols.join(', ')}`);
+            } else {
+                console.log(`✅ All ${symbols.length} symbols successfully updated.`);
+            }
+            
+            console.log(`✅ Updated Open Interest in ${duration} seconds at ${endTime.toISOString()}`);
         } catch (error) {
             console.error('❌ Error updating open interest:', error.message);
         } finally {
@@ -138,7 +108,6 @@ class BinanceOpenInterestUpdater {
     }
 
     start() {
-        // 초기 1회 실행은 즉시 하지 않고 첫 번째 15분 정시 5초 후에 실행
         console.log('⏳ Waiting for the next 15-minute mark to update Open Interest...');
         
         const checkAndUpdate = () => {
@@ -146,15 +115,18 @@ class BinanceOpenInterestUpdater {
             const minutes = now.getMinutes();
             const seconds = now.getSeconds();
 
-            // 15분 정시에서 5초 후에 업데이트 (0, 15, 30, 45분 + 5초)
-            if (minutes % 15 === 0 && seconds === 5) {
-                console.log(`⏳ 15분 정시 후 5초 경과, Open Interest 업데이트 시작 (${now.toISOString()})...`);
+            // 15분 정각에 업데이트 (0, 15, 30, 45분)
+            if (minutes % 15 === 0 && seconds === 0) {
+                console.log(`⏳ 15분 정각, Open Interest 업데이트 시작 (${now.toISOString()})...`);
                 this.updateOpenInterest();
             }
         };
 
         // 1초마다 현재 시간을 확인하고, 15분 단위로 OI 업데이트
         this.interval = setInterval(checkAndUpdate, 1000);
+        
+        // 초기 데이터를 즉시 가져오기
+        this.updateOpenInterest();
     }
 
     stop() {

@@ -38,12 +38,12 @@ let futuresData = [];
             }
         });
 
-        
+      
     });
 
     binanceWS.connect();
 
-    // 미결제약정 15분마다 업데이트
+    // OI 업데이터 시작 (15분마다 정각에 업데이트)
     const openInterestUpdater = new BinanceOpenInterestUpdater(futuresData);
     openInterestUpdater.start();
 })();
