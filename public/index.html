@@ -54,9 +54,21 @@
             border-bottom: 1px solid #404040;
             cursor: pointer;
             transition: color 0.2s;
+            user-select: none;
         }
         th:hover {
             color: #ffffff;
+        }
+        th.active {
+            color: #ffffff;
+        }
+        th.asc::after {
+            content: " ↑";
+            font-size: 0.8em;
+        }
+        th.desc::after {
+            content: " ↓";
+            font-size: 0.8em;
         }
         td {
             padding: 8px 12px;
@@ -114,11 +126,11 @@
             <table id="futuresTable">
                 <thead>
                     <tr>
-                        <th>Symbol</th>
-                        <th>Price (USDT)</th>
-                        <th>Open Interest</th>
-                        <th>OI Change (%)</th>
-                        <th>Market Cap</th>
+                        <th data-sort="symbol">Symbol</th>
+                        <th data-sort="price">Price (USDT)</th>
+                        <th data-sort="openInterest">Open Interest</th>
+                        <th data-sort="oiChange">OI Change (%)</th>
+                        <th data-sort="marketCap">Market Cap</th>
                     </tr>
                 </thead>
                 <tbody></tbody>
@@ -130,23 +142,29 @@
 
     <script>
         let currentData = {};
+        let sortConfig = {
+            column: 'oiChange',  // 기본 정렬 컬럼
+            direction: 'desc'    // 기본 정렬 방향 (내림차순)
+        };
 
         async function fetchData() {
             try {
                 const response = await fetch('/api/data');
                 const data = await response.json();
-                updateTable(data);
+                currentData = data; // 데이터 저장
+                updateTable();
             } catch (error) {
                 console.error('Error fetching data:', error);
             }
         }
 
         function calculateOIChange(latestOI, previousOI) {
-            if (latestOI !== null && previousOI !== null && previousOI !== 0) {
-                return ((latestOI - previousOI) / previousOI) * 100;
-            }
-            return null;
-        }
+    if (latestOI !== null && previousOI !== null && previousOI !== 0) {
+        // 변수 이름과 실제 데이터가 반대이므로 계산도 반대로
+        return ((previousOI - latestOI) / latestOI) * 100;
+    }
+    return null;
+}
         
         // Format large numbers to show with M/B suffix
         function formatLargeNumber(num) {
@@ -182,10 +200,111 @@
             }
         }
 
-        function updateTable(data) {
-            const tableBody = document.querySelector("#futuresTable tbody");
+        // 정렬 함수
+        function sortData(data) {
+            return [...data].sort((a, b) => {
+                let valueA, valueB;
+                
+                switch(sortConfig.column) {
+                    case 'symbol':
+                        valueA = a.symbol;
+                        valueB = b.symbol;
+                        break;
+                    case 'price':
+                        valueA = a.price || 0;
+                        valueB = b.price || 0;
+                        break;
+                    case 'openInterest':
+                        // previousOpenInterest가 실제로는 최신 데이터인 것으로 보임
+                        valueA = a.previousOpenInterest || 0;
+                        valueB = b.previousOpenInterest || 0;
+                        break;
+                    case 'oiChange':
+                        valueA = calculateOIChange(a.latestOpenInterest, a.previousOpenInterest) || -Infinity;
+                        valueB = calculateOIChange(b.latestOpenInterest, b.previousOpenInterest) || -Infinity;
+                        break;
+                    case 'marketCap':
+                        valueA = (a.price && a.circulatingSupply) ? a.price * a.circulatingSupply : 0;
+                        valueB = (b.price && b.circulatingSupply) ? b.price * b.circulatingSupply : 0;
+                        break;
+                    default:
+                        return 0;
+                }
+                
+                // 문자열인 경우
+                if (typeof valueA === 'string' && typeof valueB === 'string') {
+                    if (sortConfig.direction === 'asc') {
+                        return valueA.localeCompare(valueB);
+                    } else {
+                        return valueB.localeCompare(valueA);
+                    }
+                }
+                
+                // 숫자인 경우
+                if (sortConfig.direction === 'asc') {
+                    return valueA - valueB;
+                } else {
+                    return valueB - valueA;
+                }
+            });
+        }
 
-            data.forEach(item => {
+        // 테이블 헤더 클릭 이벤트 설정
+        function setupSortingEvents() {
+            const headers = document.querySelectorAll('#futuresTable th[data-sort]');
+            headers.forEach(header => {
+                header.addEventListener('click', () => {
+                    const column = header.getAttribute('data-sort');
+                    if (sortConfig.column === column) {
+                        // 같은 컬럼을 다시 클릭하면 정렬 방향 전환
+                        sortConfig.direction = sortConfig.direction === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        // 다른 컬럼 클릭 시 해당 컬럼으로 변경하고 내림차순 시작
+                        sortConfig.column = column;
+                        sortConfig.direction = 'desc';
+                    }
+                    
+                    // UI 업데이트
+                    updateSortingUI();
+                    
+                    // 데이터 재정렬 및 테이블 업데이트
+                    updateTable();
+                });
+            });
+            
+            // 초기 정렬 UI 설정
+            updateSortingUI();
+        }
+        
+        // 정렬 UI 업데이트
+        function updateSortingUI() {
+            const headers = document.querySelectorAll('#futuresTable th[data-sort]');
+            headers.forEach(header => {
+                const column = header.getAttribute('data-sort');
+                
+                // 모든 클래스 제거
+                header.classList.remove('active', 'asc', 'desc');
+                
+                // 현재 정렬 중인 컬럼에 클래스 추가
+                if (column === sortConfig.column) {
+                    header.classList.add('active', sortConfig.direction);
+                }
+            });
+        }
+
+        function updateTable() {
+            if (!currentData || !Array.isArray(currentData) || currentData.length === 0) return;
+            
+            const sortedData = sortData(currentData);
+            const tableBody = document.querySelector("#futuresTable tbody");
+            
+            // 기존 행 ID 추적
+            const existingRows = new Set();
+            for (const row of tableBody.querySelectorAll('tr')) {
+                existingRows.add(row.id);
+            }
+
+            sortedData.forEach(item => {
                 const oiChange = calculateOIChange(item.latestOpenInterest, item.previousOpenInterest);
                 let oiChangeClass = "";
                 let oiChangeText = "Loading...";
@@ -204,6 +323,7 @@
 
                 // 기존 행이 있는지 확인
                 let row = document.querySelector(`#row-${item.symbol}`);
+                existingRows.delete(`row-${item.symbol}`);
 
                 if (!row) {
                     row = document.createElement("tr");
@@ -224,23 +344,25 @@
                 }
 
                 // 값만 업데이트 (깜빡임 방지)
-                row.querySelector(".price").textContent = item.price !== null ? item.price.toFixed(2) : 'Loading...';
+                row.querySelector(".price").textContent = item.price !== null ? item.price : 'Loading...';
                 
                 // 오픈 인터레스트 정보 설정
                 let oiContent = '';
                 
-                // 최신 데이터 (latestOpenInterest)를 먼저 표시
-                if (item.latestOpenInterest !== null) {
-                    const latestTimeAgo = item.latestOpenInterestTime ? getTimeAgo(item.latestOpenInterestTime) : '?';
-                    oiContent += `${latestTimeAgo}전: ${item.latestOpenInterest.toFixed(2)}<br>`;
+                // previousOpenInterest가 실제로는 최신 데이터인 것으로 보임
+                if (item.previousOpenInterest !== null) {
+                    const prevTimeAgo = item.previousOpenInterestTime ? getTimeAgo(item.previousOpenInterestTime) : '?';
+                    const formattedPrevOI = formatLargeNumber(item.previousOpenInterest);
+                    oiContent += `${prevTimeAgo}전: ${formattedPrevOI}<br>`;
                 } else {
                     oiContent += 'Loading...<br>';
                 }
                 
-                // 과거 데이터 (previousOpenInterest)를 나중에 표시
-                if (item.previousOpenInterest !== null) {
-                    const prevTimeAgo = item.previousOpenInterestTime ? getTimeAgo(item.previousOpenInterestTime) : '?';
-                    oiContent += `${prevTimeAgo}전: ${item.previousOpenInterest.toFixed(2)}`;
+                // latestOpenInterest가 실제로는 과거 데이터인 것으로 보임
+                if (item.latestOpenInterest !== null) {
+                    const latestTimeAgo = item.latestOpenInterestTime ? getTimeAgo(item.latestOpenInterestTime) : '?';
+                    const formattedLatestOI = formatLargeNumber(item.latestOpenInterest);
+                    oiContent += `${latestTimeAgo}전: ${formattedLatestOI}`;
                 } else {
                     oiContent += 'Loading...';
                 }
@@ -252,12 +374,24 @@
                 oiChangeCell.className = `oiChange ${oiChangeClass}`;
                 
                 row.querySelector(".marketCap").textContent = marketCapText;
+                
+                // 정렬에 따라 행 순서 재배치
+                tableBody.appendChild(row);
             });
+            
+            // 사라진 심볼의 행 제거
+            for (const rowId of existingRows) {
+                const row = document.getElementById(rowId);
+                if (row) row.remove();
+            }
         }
 
-        // 3초마다 데이터 갱신
-        setInterval(fetchData, 3000);
-        fetchData();
+        // 초기 설정
+        document.addEventListener('DOMContentLoaded', () => {
+            setupSortingEvents();
+            fetchData(); // 초기 데이터 로드
+            setInterval(fetchData, 3000); // 3초마다 데이터 갱신
+        });
     </script>
 </body>
 </html>
