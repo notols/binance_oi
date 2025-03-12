@@ -38,7 +38,7 @@ let futuresData = [];
             }
         });
 
-        console.log('📡 가격 업데이트됨');
+        
     });
 
     binanceWS.connect();
