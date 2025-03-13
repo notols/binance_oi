@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
 import BinanceFuturesData from './BinanceFuturesData.js';
 import BinancePriceWebSocket from './BinancePriceWebSocket.js';
 import BinanceOpenInterestUpdater from './BinanceOpenInterestUpdater.js';
@@ -17,6 +19,16 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const httpServer = createServer(app);
+
+// Socket.io 설정
+const io = new Server(httpServer, {
+  cors: {
+    origin: ["http://localhost:5173"], // Vite 개발 서버 기본 포트
+    methods: ["GET", "POST"],
+    credentials: true
+  }
+});
 
 // 텔레그램 봇 설정
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -25,9 +37,22 @@ const OI_CHANGE_THRESHOLD = parseFloat(process.env.OI_CHANGE_THRESHOLD || '50');
 
 app.use(cors()); // CORS 활성화
 app.use(express.static('public')); // 정적 파일을 제공할 디렉토리 설정
+app.use(express.json());
 
 let futuresData = [];
 let telegramAlertService = null;
+
+// Socket.io 연결 이벤트
+io.on('connection', (socket) => {
+  console.log(`🔌 Socket connected: ${socket.id}`);
+  
+  // 최초 연결 시 현재 데이터 전송
+  socket.emit('data_update', futuresData);
+
+  socket.on('disconnect', () => {
+    console.log(`🔌 Socket disconnected: ${socket.id}`);
+  });
+});
 
 // 초기 데이터 가져오기
 (async () => {
@@ -54,12 +79,23 @@ let telegramAlertService = null;
                 item.price = parseFloat(update.p);
             }
         });
+        
+        // 가격 업데이트 시 Socket.io로 최신 데이터 브로드캐스트
+        io.emit('data_update', futuresData);
     });
 
     binanceWS.connect();
 
     // OI 업데이터 시작 (15분마다 정각에 업데이트)
     const openInterestUpdater = new BinanceOpenInterestUpdater(futuresData);
+    
+    // OI 업데이트 시 Socket.io로 최신 데이터 브로드캐스트하는 함수 추가
+    const originalUpdateMethod = openInterestUpdater.updateOpenInterest;
+    openInterestUpdater.updateOpenInterest = async function() {
+        await originalUpdateMethod.call(this);
+        io.emit('data_update', futuresData);
+    };
+    
     openInterestUpdater.start();
 
     // 텔레그램 알림 서비스 초기화 (환경 변수가 설정된 경우에만)
@@ -91,18 +127,13 @@ let telegramAlertService = null;
     }
 })();
 
-// 루트 경로 설정 - HTML 페이지 제공
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-// API 엔드포인트: 현재 데이터 제공
+// 루트 경로 설정 - SPA를 위한 API로만 제공
 app.get('/api/data', (req, res) => {
     res.json(futuresData);
 });
 
 // API 엔드포인트: 알림 임계값 설정
-app.post('/api/alerts/threshold', express.json(), (req, res) => {
+app.post('/api/alerts/threshold', (req, res) => {
     const { threshold } = req.body;
     
     if (!telegramAlertService) {
@@ -117,7 +148,12 @@ app.post('/api/alerts/threshold', express.json(), (req, res) => {
     res.json({ success: true, threshold });
 });
 
-// 서버 시작
-app.listen(PORT, () => {
+// SPA용 캐치올 라우트 (클라이언트 라우팅을 위함)
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// 서버 시작 (http 서버로 변경)
+httpServer.listen(PORT, () => {
     console.log(`🚀 Server is running at http://localhost:${PORT}`);
 });
