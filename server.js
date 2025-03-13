@@ -1,10 +1,16 @@
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import BinanceFuturesData from './BinanceFuturesData.js';
 import BinancePriceWebSocket from './BinancePriceWebSocket.js';
 import BinanceOpenInterestUpdater from './BinanceOpenInterestUpdater.js';
 import TelegramAlertService from './TelegramAlertService.js';
 import dotenv from 'dotenv';
+
+// ES 모듈에서 __dirname 사용하기 위한 설정
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // 환경 변수 로드 (.env 파일)
 dotenv.config();
@@ -18,7 +24,7 @@ const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 const OI_CHANGE_THRESHOLD = parseFloat(process.env.OI_CHANGE_THRESHOLD || '50');
 
 app.use(cors()); // CORS 활성화
-app.use(express.static('public')); // index.html 제공
+app.use(express.static('public')); // 정적 파일을 제공할 디렉토리 설정
 
 let futuresData = [];
 let telegramAlertService = null;
@@ -48,8 +54,6 @@ let telegramAlertService = null;
                 item.price = parseFloat(update.p);
             }
         });
-
-        
     });
 
     binanceWS.connect();
@@ -86,6 +90,11 @@ let telegramAlertService = null;
         console.log('⚠️ 텔레그램 봇 설정이 없습니다. 알림 기능이 비활성화됩니다.');
     }
 })();
+
+// 루트 경로 설정 - HTML 페이지 제공
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 // API 엔드포인트: 현재 데이터 제공
 app.get('/api/data', (req, res) => {
