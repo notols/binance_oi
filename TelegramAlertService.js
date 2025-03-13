@@ -62,7 +62,7 @@ class TelegramAlertService {
                 chat_id: this.chatId,
                 text: message,
                 parse_mode: 'Markdown',
-                disable_web_page_preview: false // 링크 미리보기 활성화
+                disable_web_page_preview: true // 링크 미리보기 활성화
             });
             
             console.log(`✅ Telegram alert sent for ${symbol} (${oiChange.toFixed(2)}% 증가)`);
